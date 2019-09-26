@@ -11,63 +11,6 @@ import logging
 logger = logging.getLogger('sequence_tagger_bert')
 
 
-from fastai.basic_train import Learner
-from fastai.callback import OptimWrapper
-from fastai.basic_data import DataBunch
-from fastai.torch_core import flatten_model
-
-
-
-def ner_loss_func(out, ys): 
-    '''
-    Loss function - to use with fastai learner
-    It calculates the loss for token classification using softmax cross entropy
-    If out is already the loss, we simply return the loss
-    '''
-    
-    # If out is already the loss
-    
-    loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
-        
-
-    labels = ys
-    active_loss = labels != 0
-    active_logits = out.view(-1, out.shape[-1])[active_loss]
-    active_labels = labels.view(-1)[active_loss]
-    loss = loss_fct(active_logits, active_labels)
-    loss = loss.mean(-1)
-    return loss
-
-
-class FastAiTrainerBert:
-    def __init__(self, model, optimizer, train_dataloader, val_dataloader, epoch, lr):
-        self._model = model
-        self._optimizer = optimizer
-        self._train_dataloader = train_dataloader
-        self._val_dataloader = val_dataloader
-        self._epoch = epoch
-        self._lr = lr
-        
-    def train(self):
-        fastai_optimizer = OptimWrapper(self._optimizer)
-        
-        data_bunch = DataBunch(
-            train_dl=self._train_dataloader,
-            valid_dl=self._val_dataloader
-        )
-        
-        learner = Learner(data_bunch, self._model, BertAdam,
-                    loss_func=ner_loss_func,
-                    #metrics=metrics,
-                    true_wd=False,
-                    layer_groups=None,
-                    path='learn')
-        learner.optim = fastai_optimizer
-        
-        for epoch in range(self._epoch):
-            learner.fit(1, self._lr)
-
-
 class ModelTrainerBert:
     def __init__(self, 
                  model, 
@@ -78,7 +21,8 @@ class ModelTrainerBert:
                  patience=1,
                  reduce_on_plateau=True,
                  number_of_steps=-1,
-                 warmup_proportion=0.1):
+                 warmup_proportion=0.1,
+                 keep_best_model=True):
         self._model = model
         self._optimizer = optimizer
         self._reduce_on_plateau = reduce_on_plateau
@@ -95,10 +39,12 @@ class ModelTrainerBert:
             
         self._train_dataloader = train_dataloader
         self._val_dataloader = val_dataloader
+        self._keep_best_model = keep_best_model
     
     def train(self, epochs, max_grad_norm=1.0, max_to_anneal=2):
         n_anneal = 0
         best_model = {}
+        best_val_loss = float('inf')
         
         get_lr = lambda: self._optimizer.param_groups[0]['lr']
         prev_lr = get_lr()
@@ -108,20 +54,19 @@ class ModelTrainerBert:
             self._model._bert_model.train()
 
             cum_loss = 0.
-            for tokens, labels in self._train_dataloader:
+            for nb, (tokens, labels) in enumerate(self._train_dataloader):
                 #self._lr_scheduler.step()
                 
-                #loss, mask_sum = self._model.forward_loss(tokens, labels)
                 loss = self._model.forward_loss(tokens, labels)
                 loss.backward()
                 
-                #cum_loss += (loss.item() / mask_sum)
                 cum_loss += loss.item()
 #                 torch.nn.utils.clip_grad_norm_(parameters=self._model._bert_model.parameters(), 
 #                                                max_norm=max_grad_norm)
                 self._optimizer.step()
                 self._model._bert_model.zero_grad()
-
+            
+            cum_loss /= (nb + 1)
             logger.info(f'Train loss: {cum_loss}')
 
             if self._val_dataloader is not None:
@@ -129,11 +74,13 @@ class ModelTrainerBert:
                 logger.info(f'Validation loss: {val_loss}')
                 logger.info(f'Validation F1-Score: {val_f1}')
                 
+                #if val_loss < self._lr_scheduler.best:
+                if self._keep_best_model and (val_loss < best_val_loss):
+                    best_model = copy.deepcopy(self._model._bert_model.state_dict())
+                    best_val_loss = val_loss
+                
                 if not self._reduce_on_plateau:
                     continue
-                    
-                if val_loss < self._lr_scheduler.best:
-                    best_model = copy.deepcopy(self._model._bert_model.state_dict())
                 
                 self._lr_scheduler.step(val_loss)
                 
@@ -153,35 +100,7 @@ class ModelTrainerBert:
             self._model._bert_model.load_state_dict(best_model)
 
         torch.cuda.empty_cache()
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+      
         
 
 # Copyright 2018 The Google AI Language Team Authors and The HugginFace Inc. team.
@@ -231,6 +150,7 @@ SCHEDULES = {
 def initBertAdam(params, lr, warmup=0.1, t_total=-1, schedule='warmup_linear',
                  betas=(0.9, 0.999), e=1e-6, weight_decay=0.01, max_grad_norm=1.0):
     return BertAdam(params, lr, warmup, t_total, schedule, betas, e, weight_decay, max_grad_norm)
+
 
 class BertAdam(Optimizer):
     """Implements BERT version of Adam algorithm with weight decay fix.
@@ -349,10 +269,6 @@ class BertAdam(Optimizer):
                 # bias_correction2 = 1 - beta2 ** state['step']
 
         return loss        
-
-
-
-
 
 
 def create_optimizer(model, full_finetuning, t_total, lr_body, weight_decay):

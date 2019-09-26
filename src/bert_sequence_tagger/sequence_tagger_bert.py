@@ -80,7 +80,7 @@ class SequenceTaggerBert(torch.nn.Module):
         predictions = []
         
         if evaluate:
-            cum_loss, mask_sum = 0., 0
+            cum_loss = 0.
             true_labels = []
                          
         for nb, tokens in enumerate(dataloader):
@@ -99,7 +99,6 @@ class SequenceTaggerBert(torch.nn.Module):
                 token_masks = token_masks.cuda()
                 
                 if evaluate:
-                    mask_sum += token_masks[loss_masks].sum().item()
                     label_ids = label_ids.cuda()
                     loss_masks = loss_masks.cuda()
     
