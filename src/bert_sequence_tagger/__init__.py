@@ -1,3 +1,3 @@
 from .sequence_tagger_bert import SequenceTaggerBert
 from .bert_for_token_classification_custom import BertForTokenClassificationCustom
-from .model_trainer_bert import ModelTrainerBert, create_optimizer
+from .model_trainer_bert import ModelTrainerBert

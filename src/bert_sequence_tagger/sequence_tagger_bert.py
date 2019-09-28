@@ -70,13 +70,20 @@ class SequenceTaggerBert(torch.nn.Module):
     
     def _logits_to_preds(self, logits, bpe_masks, tokens):
         preds = logits.argmax(dim=2).numpy()
+        probs = logits.numpy().max(axis=2)
+        prob = [np.mean([p for p, m in zip(prob[:len(masks)], masks[:len(prob)]) if m][1:-1])  
+                for prob, masks in zip(probs, bpe_masks)]
         preds = [[self._idx2tag[p] for p, m in zip(pred[:len(masks)], masks[:len(pred)]) if m][1:-1] 
                  for pred, masks in zip(preds, bpe_masks)]
         preds = [pred + ['O']*(max(0, len(toks) - len(pred))) for pred, toks in zip(preds, tokens)]
-        return preds
+        return preds, prob
     
-    def predict(self, dataloader, evaluate=False):
+    def predict(self, dataloader, evaluate=False, metrics=None):
+        if metrics is None:
+            metrics = []
+        
         self._bert_model.eval()
+        
         predictions = []
         
         if evaluate:
@@ -90,6 +97,7 @@ class SequenceTaggerBert(torch.nn.Module):
             
             _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
             label_ids = None
+            loss_masks = None
             
             if evaluate:
                 label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)     
@@ -110,23 +118,24 @@ class SequenceTaggerBert(torch.nn.Module):
                 
                 if evaluate:
                     loss, logits = logits
-                    cum_loss += loss.item()
+                    cum_loss += loss.mean().item()
+                else:
+                    logits = logits[0]
 
-                b_preds = self._logits_to_preds(logits.cpu(), bpe_masks, tokens)
+                b_preds, prob = self._logits_to_preds(logits.cpu(), bpe_masks, tokens)
                 
             predictions.extend(b_preds)
                      
         if evaluate: 
             cum_loss /= (nb + 1)
-            f1 = f1_score(true_labels, predictions)    
-            f1_token_level = f1_score_token(list(itertools.chain(*true_labels)), 
-                                            list(itertools.chain(*predictions)), 
-                                            average='micro',
-                                            labels=list(set(self._tag2idx) - {'[PAD]', 'O'}))
+            
+            result_metrics = []
+            for metric in metrics:
+                result_metrics.append(metric(true_labels, predictions))
                      
-            return predictions, cum_loss, (f1, f1_token_level)
+            return predictions, prob, tuple([cum_loss] + result_metrics)
         else:
-            return predictions
+            return predictions, prob
 
     def forward_loss(self, tokens, labels):
         _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)

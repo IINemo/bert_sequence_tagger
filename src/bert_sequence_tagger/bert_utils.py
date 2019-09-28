@@ -1,3 +1,5 @@
+from torch.utils.data import DataLoader
+
 
 def make_bert_tag_dict_from_flair_corpus(corpus):
     tags_vals = corpus.make_tag_dictionary('ner').get_items()
@@ -19,3 +21,29 @@ def prepare_flair_corpus(corpus, name='ner', filter_tokens={'-DOCSTART-'}):
                            [token.tags[name].value for token in sent.tokens]))
     
     return result
+
+
+def get_parameters_without_decay(model, no_decay={'bias', 'gamma', 'beta'}):
+    params_no_decay = []
+    params_decay = []
+    for n, p in model.named_parameters():
+        if any((e in n) for e in no_decay):
+            params_no_decay.append(p)
+        else:
+            params_decay.append(p)
+    
+    return [{'params' : params_no_decay, 'weight_decay' : 0.},
+            {'params' : params_decay}]
+
+
+def create_loader_from_flair_corpus(corpus, sampler_ctor, batch_size):
+    collate_fn = lambda inpt: tuple(zip(*inpt))
+    
+    dataset = prepare_flair_corpus(corpus)
+    sampler = sampler_ctor(dataset)
+    dataloader = DataLoader(dataset, 
+                            sampler=sampler, 
+                            batch_size=batch_size,
+                            collate_fn=collate_fn)
+    return dataloader
+    
