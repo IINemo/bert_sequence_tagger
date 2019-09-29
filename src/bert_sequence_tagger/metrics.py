@@ -1,7 +1,10 @@
 import itertools
 from sklearn.metrics import f1_score as f1_score_sklearn
+from seqeval.metrics import f1_score
 
-from seqeval.metrics import f1_score as f1_entity_level
+
+def f1_entity_level(*args, **kwargs):
+    return f1_score(*args, **kwargs)
 
 
 def f1_token_level(true_labels, predictions):

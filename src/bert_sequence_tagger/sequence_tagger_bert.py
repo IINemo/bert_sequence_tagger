@@ -136,10 +136,18 @@ class SequenceTaggerBert(torch.nn.Module):
             return predictions, prob, tuple([cum_loss] + result_metrics)
         else:
             return predictions, prob
-
-    def forward_loss(self, tokens, labels):
+        
+    def generate_tensors_for_training(self, tokens, labels):
         _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
         label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)
+        return token_ids, token_masks, label_ids, loss_masks
+    
+    def generate_tensors_for_prediction(self, tokens):
+        _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
+        return token_ids, token_masks, bpe_masks
+
+    def forward_loss(self, tokens, labels):
+        token_ids, token_masks, label_ids, loss_masks = self.generate_tensors_for_training(tokens, labels)
         
         token_ids = token_ids.cuda()
         token_masks = token_masks.cuda()

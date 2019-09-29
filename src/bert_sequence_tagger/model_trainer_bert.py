@@ -49,7 +49,7 @@ class ModelTrainerBert:
         get_lr = lambda: self._optimizer.param_groups[0]['lr']
         prev_lr = get_lr()
         
-        iterator = trange(epochs, desc="Epoch")
+        iterator = trange(epochs, desc='Epoch')
         for epoch in iterator:
             self._model._bert_model.train()
 
@@ -85,7 +85,8 @@ class ModelTrainerBert:
                 if self._keep_best_model and (dec_metric < best_dec_metric):
                     best_model = copy.deepcopy(self._model._bert_model.state_dict())
                     best_dec_metric = dec_metric
-                
+            
+            logger.info(f'Current learning rate: {prev_lr}')
             if self._update_scheduler == 'ee':
                 self._lr_scheduler.step(dec_metric)
                 
@@ -95,6 +96,7 @@ class ModelTrainerBert:
                     break
 
                 prev_lr = get_lr()
+                logger.info(f'Reduced learning rate to: {prev_lr}')
                     
                 logger.info('Restoring best model...')
                 self._model._bert_model.load_state_dict(best_model)
