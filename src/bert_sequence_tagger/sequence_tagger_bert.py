@@ -85,6 +85,7 @@ class SequenceTaggerBert(torch.nn.Module):
         self._bert_model.eval()
         
         predictions = []
+        probas = []
         
         if evaluate:
             cum_loss = 0.
@@ -122,9 +123,10 @@ class SequenceTaggerBert(torch.nn.Module):
                 else:
                     logits = logits[0]
 
-                b_preds, prob = self._logits_to_preds(logits.cpu(), bpe_masks, tokens)
+                b_preds, b_prob = self._logits_to_preds(logits.cpu(), bpe_masks, tokens)
                 
             predictions.extend(b_preds)
+            probas.extend(b_prob)
                      
         if evaluate: 
             cum_loss /= (nb + 1)
@@ -133,9 +135,9 @@ class SequenceTaggerBert(torch.nn.Module):
             for metric in metrics:
                 result_metrics.append(metric(true_labels, predictions))
                      
-            return predictions, prob, tuple([cum_loss] + result_metrics)
+            return predictions, probas, tuple([cum_loss] + result_metrics)
         else:
-            return predictions, prob
+            return predictions, probas
         
     def generate_tensors_for_training(self, tokens, labels):
         _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)

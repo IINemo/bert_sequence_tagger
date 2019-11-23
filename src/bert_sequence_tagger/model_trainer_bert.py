@@ -1,7 +1,4 @@
 import torch
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-
-from pytorch_transformers.optimization import WarmupLinearSchedule
 from pytorch_transformers import AdamW
 
 import copy
@@ -47,7 +44,6 @@ class ModelTrainerBert:
         best_dec_metric = float('inf')
         
         get_lr = lambda: self._optimizer.param_groups[0]['lr']
-        prev_lr = get_lr()
         
         iterator = trange(epochs, desc='Epoch')
         for epoch in iterator:
@@ -58,16 +54,19 @@ class ModelTrainerBert:
                 loss = self._model.forward_loss(tokens, labels)
                 cum_loss += loss.item()
                 
+                self._model._bert_model.zero_grad()
                 loss.backward()
                 if self._max_grad_norm > 0.:
                     torch.nn.utils.clip_grad_norm_(parameters=self._model._bert_model.parameters(), 
                                                    max_norm=self._max_grad_norm)
                     
                 self._optimizer.step()
-                self._model._bert_model.zero_grad()
         
                 if self._update_scheduler == 'es':
                     self._lr_scheduler.step()
+            
+            prev_lr = get_lr()
+            logger.info(f'Current learning rate: {prev_lr}')
             
             cum_loss /= (nb + 1)
             logger.info(f'Train loss: {cum_loss}')
@@ -86,7 +85,6 @@ class ModelTrainerBert:
                     best_model = copy.deepcopy(self._model._bert_model.state_dict())
                     best_dec_metric = dec_metric
             
-            logger.info(f'Current learning rate: {prev_lr}')
             if self._update_scheduler == 'ee':
                 self._lr_scheduler.step(dec_metric)
                 

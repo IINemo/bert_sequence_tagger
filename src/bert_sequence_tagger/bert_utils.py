@@ -36,6 +36,20 @@ def get_parameters_without_decay(model, no_decay={'bias', 'gamma', 'beta'}):
             {'params' : params_decay}]
 
 
+def get_model_parameters(model, no_decay={'bias', 'gamma', 'beta'}, 
+                         full_finetuning=True, lr_head=None):
+    grouped_parameters = get_parameters_without_decay(model.classifier, no_decay)
+    if lr_head is not None:
+        for param in grouped_parameters:
+            param['lr'] = lr_head
+    
+    if full_finetuning:
+        grouped_parameters = (get_parameters_without_decay(model.bert, no_decay) 
+                              + grouped_parameters)
+    
+    return grouped_parameters
+
+
 def create_loader_from_flair_corpus(corpus, sampler_ctor, batch_size):
     collate_fn = lambda inpt: tuple(zip(*inpt))
     
