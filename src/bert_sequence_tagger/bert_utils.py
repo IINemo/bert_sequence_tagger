@@ -1,4 +1,5 @@
 from torch.utils.data import DataLoader
+from torch.utils.data import RandomSampler, SequentialSampler
 
 
 def make_bert_tag_dict_from_flair_corpus(corpus):
@@ -50,8 +51,11 @@ def get_model_parameters(model, no_decay={'bias', 'gamma', 'beta'},
     return grouped_parameters
 
 
-def create_loader_from_flair_corpus(corpus, sampler_ctor, batch_size):
+def create_loader_from_flair_corpus(corpus, sampler_ctor=None, batch_size=100, shuffle=True):
     collate_fn = lambda inpt: tuple(zip(*inpt))
+    
+    if sampler_ctor is None:
+        sampler_ctor = RandomSampler if shuffle else SequentialSampler
     
     dataset = prepare_flair_corpus(corpus)
     sampler = sampler_ctor(dataset)

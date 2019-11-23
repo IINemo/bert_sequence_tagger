@@ -5,6 +5,8 @@ from sklearn.metrics import f1_score as f1_score_token
 
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
+from torch.utils.data import DataLoader
+
 import itertools
 from tqdm import trange
 import numpy as np
@@ -14,8 +16,10 @@ import logging
 logger = logging.getLogger('sequence_tagger_bert')
 
 
-class SequenceTaggerBert(torch.nn.Module):
-    def __init__(self, bert_model, bpe_tokenizer, idx2tag, tag2idx, max_len=100):
+class SequenceTaggerBert:
+    def __init__(self, bert_model, bpe_tokenizer, idx2tag, tag2idx, 
+                 max_len=100, pred_loader_args={'num_workers' : 1}, 
+                 pred_batch_size=100):
         super().__init__()
         
         self._bert_model = bert_model
@@ -23,6 +27,8 @@ class SequenceTaggerBert(torch.nn.Module):
         self._idx2tag = idx2tag
         self._tag2idx = tag2idx
         self._max_len = max_len
+        self._pred_loader_args = pred_loader_args
+        self._pred_batch_size = pred_batch_size
         
     def _bpe_tokenize(self, words):
         new_words = []
@@ -78,11 +84,32 @@ class SequenceTaggerBert(torch.nn.Module):
         preds = [pred + ['O']*(max(0, len(toks) - len(pred))) for pred, toks in zip(preds, tokens)]
         return preds, prob
     
-    def predict(self, dataloader, evaluate=False, metrics=None):
+    #def predict(self, dataloader, evaluate=False, metrics=None):
+    def generate_tensors_for_prediction(self, evaluate, dataset_row):
+        dataset_row = dataset_row
+        labels = None
+        if evaluate:
+            tokens, labels = tuple(zip(*dataset_row))
+            
+        _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
+        label_ids = None
+        loss_masks = None
+            
+        if evaluate:
+#             print('Labels', labels)
+#             print('BPE masks', bpe_masks)
+            label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)
+        
+        return token_ids, token_masks, bpe_masks, label_ids, loss_masks, tokens, labels
+    
+    def predict(self, dataset, evaluate=False, metrics=None):
         if metrics is None:
             metrics = []
         
         self._bert_model.eval()
+        
+        dataloader = DataLoader(dataset, collate_fn=lambda dataset_row: self.generate_tensors_for_prediction(evaluate, dataset_row), 
+                               **self._pred_loader_args, batch_size=self._pred_batch_size)
         
         predictions = []
         probas = []
@@ -91,17 +118,21 @@ class SequenceTaggerBert(torch.nn.Module):
             cum_loss = 0.
             true_labels = []
                          
-        for nb, tokens in enumerate(dataloader):
+        for nb, tensors in enumerate(dataloader):
+            token_ids, token_masks, bpe_masks, label_ids, loss_masks, tokens, labels = tensors
+
             if evaluate:
-                tokens, labels = tokens
                 true_labels.extend(labels)
+#             if evaluate:
+#                 tokens, labels = tokens
+#                 true_labels.extend(labels)
             
-            _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
-            label_ids = None
-            loss_masks = None
+#             _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
+#             label_ids = None
+#             loss_masks = None
             
-            if evaluate:
-                label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)     
+#             if evaluate:
+#                 label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)
             
             with torch.no_grad():
                 token_ids = token_ids.cuda()
@@ -144,11 +175,11 @@ class SequenceTaggerBert(torch.nn.Module):
         label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)
         return token_ids, token_masks, label_ids, loss_masks
     
-    def generate_tensors_for_prediction(self, tokens):
+    def generate_feature_tensors_for_prediction(self, tokens):
         _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
         return token_ids, token_masks, bpe_masks
 
-    def forward_loss(self, tokens, labels):
+    def batch_loss(self, tokens, labels):
         token_ids, token_masks, label_ids, loss_masks = self.generate_tensors_for_training(tokens, labels)
         
         token_ids = token_ids.cuda()
@@ -164,7 +195,7 @@ class SequenceTaggerBert(torch.nn.Module):
 
         return loss.mean()
     
-    def forward(self, tokens):
+    def batch_logits(self, tokens):
         _, max_len, token_ids, token_masks, __ = self._make_tokens_tensors(tokens, self._max_len)
         token_ids = token_ids.cuda()
         token_masks = token_masks.cuda()

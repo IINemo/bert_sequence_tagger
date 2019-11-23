@@ -13,8 +13,8 @@ class ModelTrainerBert:
                  model, 
                  optimizer, 
                  lr_scheduler,
-                 train_dataloader, 
-                 val_dataloader, 
+                 train_dataset, 
+                 val_dataset, 
                  update_scheduler='es', # ee(every_epoch) or every_step(es)
                  keep_best_model=False,
                  restore_bm_on_lr_change=False,
@@ -26,8 +26,8 @@ class ModelTrainerBert:
         self._optimizer = optimizer
         self._lr_scheduler = lr_scheduler
             
-        self._train_dataloader = train_dataloader
-        self._val_dataloader = val_dataloader
+        self._train_dataset = train_dataset
+        self._val_dataset = val_dataset
         
         self._update_scheduler = update_scheduler
         self._keep_best_model = keep_best_model
@@ -45,13 +45,17 @@ class ModelTrainerBert:
         
         get_lr = lambda: self._optimizer.param_groups[0]['lr']
         
+        train_dataloader = DataLoader(self._train_dataset, batch_size=self._batch_size, 
+                                      collate_fn=self._model.generate_tensors_for_training)
         iterator = trange(epochs, desc='Epoch')
         for epoch in iterator:
             self._model._bert_model.train()
 
             cum_loss = 0.
-            for nb, (tokens, labels) in enumerate(self._train_dataloader):
-                loss = self._model.forward_loss(tokens, labels)
+            for nb, tensors in enumerate(train_dataloader):
+                tensors = (t.cuda() for t in tensors)
+                loss = self._model._bert_model(*tensors).mean()
+                #loss = self._model.batch_loss(tokens, labels)
                 cum_loss += loss.item()
                 
                 self._model._bert_model.zero_grad()
@@ -72,8 +76,8 @@ class ModelTrainerBert:
             logger.info(f'Train loss: {cum_loss}')
 
             dec_metric = 0.
-            if self._val_dataloader is not None:
-                _, __, val_metrics = self._model.predict(self._val_dataloader, evaluate=True, 
+            if self._val_dataset is not None:
+                _, __, val_metrics = self._model.predict(self._val_dataset, evaluate=True, 
                                                          metrics=self._validation_metrics)
                 val_loss = val_metrics[0]
                 logger.info(f'Validation loss: {val_loss}')
