@@ -1,11 +1,13 @@
 import torch
 from pytorch_transformers import AdamW
+from torch.utils.data import DataLoader
 
 import copy
 from tqdm import trange
 
 import logging
 logger = logging.getLogger('sequence_tagger_bert')
+
 
 
 class ModelTrainerBert:
@@ -21,7 +23,9 @@ class ModelTrainerBert:
                  max_grad_norm=1.0,
                  smallest_lr=0.,
                  validation_metrics=None,
-                 decision_metric=None):
+                 decision_metric=None,
+                 loader_args={'num_workers' : 1},
+                 batch_size=32):
         self._model = model
         self._optimizer = optimizer
         self._lr_scheduler = lr_scheduler
@@ -38,6 +42,13 @@ class ModelTrainerBert:
         self._decision_metric = decision_metric
         if self._decision_metric is None:
             self._decision_metric = lambda metrics: metrics[0]
+            
+        self._loader_args = loader_args
+        self._batch_size = batch_size
+    
+    def _make_tensors(self, dataset_row):
+        tokens, labels = tuple(zip(*dataset_row))
+        return self._model.generate_tensors_for_training(tokens, labels)
     
     def train(self, epochs):
         best_model = {}
@@ -45,8 +56,10 @@ class ModelTrainerBert:
         
         get_lr = lambda: self._optimizer.param_groups[0]['lr']
         
-        train_dataloader = DataLoader(self._train_dataset, batch_size=self._batch_size, 
-                                      collate_fn=self._model.generate_tensors_for_training)
+        train_dataloader = DataLoader(self._train_dataset, 
+                                      batch_size=self._batch_size, 
+                                      shuffle=True,
+                                      collate_fn=self._make_tensors)
         iterator = trange(epochs, desc='Epoch')
         for epoch in iterator:
             self._model._bert_model.train()
@@ -54,8 +67,13 @@ class ModelTrainerBert:
             cum_loss = 0.
             for nb, tensors in enumerate(train_dataloader):
                 tensors = (t.cuda() for t in tensors)
-                loss = self._model._bert_model(*tensors).mean()
-                #loss = self._model.batch_loss(tokens, labels)
+                token_ids, token_masks, label_ids, loss_masks = tensors
+                loss = self._model._bert_model(token_ids, 
+                                               token_type_ids=None,
+                                               attention_mask=token_masks, 
+                                               labels=label_ids,
+                                               loss_mask=loss_masks)[0].mean()
+                
                 cum_loss += loss.item()
                 
                 self._model._bert_model.zero_grad()

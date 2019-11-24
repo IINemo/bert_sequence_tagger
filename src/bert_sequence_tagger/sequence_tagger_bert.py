@@ -84,7 +84,6 @@ class SequenceTaggerBert:
         preds = [pred + ['O']*(max(0, len(toks) - len(pred))) for pred, toks in zip(preds, tokens)]
         return preds, prob
     
-    #def predict(self, dataloader, evaluate=False, metrics=None):
     def generate_tensors_for_prediction(self, evaluate, dataset_row):
         dataset_row = dataset_row
         labels = None
@@ -96,8 +95,6 @@ class SequenceTaggerBert:
         loss_masks = None
             
         if evaluate:
-#             print('Labels', labels)
-#             print('BPE masks', bpe_masks)
             label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)
         
         return token_ids, token_masks, bpe_masks, label_ids, loss_masks, tokens, labels
@@ -108,8 +105,10 @@ class SequenceTaggerBert:
         
         self._bert_model.eval()
         
-        dataloader = DataLoader(dataset, collate_fn=lambda dataset_row: self.generate_tensors_for_prediction(evaluate, dataset_row), 
-                               **self._pred_loader_args, batch_size=self._pred_batch_size)
+        dataloader = DataLoader(dataset, 
+                                collate_fn=lambda dataset_row: self.generate_tensors_for_prediction(evaluate, dataset_row), 
+                               **self._pred_loader_args, 
+                                batch_size=self._pred_batch_size)
         
         predictions = []
         probas = []
@@ -123,16 +122,6 @@ class SequenceTaggerBert:
 
             if evaluate:
                 true_labels.extend(labels)
-#             if evaluate:
-#                 tokens, labels = tokens
-#                 true_labels.extend(labels)
-            
-#             _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
-#             label_ids = None
-#             loss_masks = None
-            
-#             if evaluate:
-#                 label_ids, loss_masks = self._make_label_tensors(labels, bpe_masks, max_len)
             
             with torch.no_grad():
                 token_ids = token_ids.cuda()
@@ -207,6 +196,8 @@ class SequenceTaggerBert:
                                 loss_mask=None)[0]
 
         return logits
+    
+    # raw batch
 
 
 def prepare_bpe_tokens_for_bert(tokens, max_len):
