@@ -94,7 +94,7 @@ _, __, test_metrics = seq_tagger.predict(test_dataset, evaluate=True,
 print(f'Entity-level f1: {test_metrics[1]}')
 print(f'Token-level f1: {test_metrics[2]}')
 
-# Predicting
+# Predicting ############################
 seq_tagger.predict([['We', 'are', 'living', 'in', 'New', 'York', 'city', '.']])
 
 ```
