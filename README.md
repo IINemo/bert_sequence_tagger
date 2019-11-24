@@ -21,11 +21,8 @@ This library does this work for you: it takes a tokenized input, performs bpe to
 from bert_sequence_tagger import SequenceTaggerBert, BertForTokenClassificationCustom
 from pytorch_transformers import BertTokenizer
 
-from bert_sequence_tagger.bert_utils import create_loader_from_flair_corpus
-from bert_sequence_tagger.bert_utils import get_model_parameters
-from bert_sequence_tagger.bert_utils import get_parameters_without_decay
-from bert_sequence_tagger.bert_utils import make_bert_tag_dict_from_flair_corpus
-
+from bert_sequence_tagger.bert_utils import get_model_parameters, prepare_flair_corpus
+from bert_sequence_tagger.bert_utils import make_bert_tag_dict_from_flair_corpus 
 from bert_sequence_tagger.model_trainer_bert import ModelTrainerBert
 from bert_sequence_tagger.metrics import f1_entity_level, f1_token_level
 
@@ -68,10 +65,8 @@ seq_tagger = SequenceTaggerBert(bert_model=model, bpe_tokenizer=bpe_tokenizer,
 
 # Training ############################
 
-train_dataloader = create_loader_from_flair_corpus(corpus.train, shuffle=True, 
-                                                   batch_size=batch_size)
-val_dataloader = create_loader_from_flair_corpus(corpus.dev, shuffle=False,
-                                                 batch_size=100)
+train_dataset = prepare_flair_corpus(corpus.train)
+val_dataset = prepare_flair_corpus(corpus.dev)
 
 optimizer = AdamW(get_model_parameters(model), lr=5e-5, betas=(0.9, 0.999), 
                   eps=1e-6, weight_decay=0.01, correct_bias=True)
@@ -83,17 +78,16 @@ lr_scheduler = WarmupLinearSchedule(optimizer, warmup_steps=0.1, t_total=n_steps
 trainer = ModelTrainerBert(model=seq_tagger, 
                            optimizer=optimizer, 
                            lr_scheduler=lr_scheduler,
-                           train_dataloader=train_dataloader, 
-                           val_dataloader=val_dataloader,
-                           validation_metrics=[f1_entity_level])
+                           train_dataset=train_dataset, 
+                           val_dataset=val_dataset,
+                           validation_metrics=[f1_entity_level],
+                           batch_size=batch_size)
 
 trainer.train(epochs=n_epochs)
 
 # Testing ############################
 
-test_dataloader = create_loader_from_flair_corpus(corpus.test, shuffle=False, 
-                                                  batch_size=100)
-
+test_dataset = prepare_flair_corpus(corpus.test)
 _, __, test_metrics = seq_tagger.predict(test_dataloader, evaluate=True, 
                                          metrics=[f1_entity_level, f1_token_level])
 print(f'Entity-level f1: {test_metrics[1]}')
