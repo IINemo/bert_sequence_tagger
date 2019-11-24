@@ -2,6 +2,23 @@
 
 BERT sequence tagger that accepts token list as an input (not BPE but any "general" tokenizer like NLTK or Standford) and produces tagged results in IOB format.
 
+Basically, you can do:
+```python
+from bert_sequence_tagger import BertSequenceTagger, ModelTrainerBert
+
+seq_tagger = BertSequenceTagger(...) # initialize the model for training or load trained one.
+# ... train model with ModelTrainerBert
+
+seq_tagger.predict([['We', 'are', 'living', 'in', 'New', 'York', 'city', '.'],
+                    ['Satya', 'Narayana', 'Nadella', 'is', 'an', 'engineer', 'and', 'business', 'executive', '.']])
+```
+Result:  
+```
+([['O', 'O', 'O', 'O', 'I-LOC', 'I-LOC', 'O', 'O'],
+  ['I-PER', 'I-PER', 'I-PER', 'O', 'O', 'O', 'O', 'O', 'O', 'O']],
+ [10.09477, 10.004749])
+```
+
 Training BERT model has many caveats that include but not limited to:  
 - Proper masking of the input.
 - Proper padding of input.
