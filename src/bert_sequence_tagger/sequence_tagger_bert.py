@@ -89,6 +89,8 @@ class SequenceTaggerBert:
         labels = None
         if evaluate:
             tokens, labels = tuple(zip(*dataset_row))
+        else:
+            tokens = dataset_row
             
         _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
         label_ids = None

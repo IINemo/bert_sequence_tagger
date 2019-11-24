@@ -60,7 +60,8 @@ model = BertForTokenClassificationCustom.from_pretrained(model_type,
                                                          num_labels=len(tag2idx)).cuda()
 
 seq_tagger = SequenceTaggerBert(bert_model=model, bpe_tokenizer=bpe_tokenizer, 
-                                idx2tag=idx2tag, tag2idx=tag2idx, max_len=128)
+                                idx2tag=idx2tag, tag2idx=tag2idx, max_len=128,
+                                batch_size=batch_size)
 
 
 # Training ############################
@@ -88,10 +89,13 @@ trainer.train(epochs=n_epochs)
 # Testing ############################
 
 test_dataset = prepare_flair_corpus(corpus.test)
-_, __, test_metrics = seq_tagger.predict(test_dataloader, evaluate=True, 
+_, __, test_metrics = seq_tagger.predict(test_dataset, evaluate=True, 
                                          metrics=[f1_entity_level, f1_token_level])
 print(f'Entity-level f1: {test_metrics[1]}')
 print(f'Token-level f1: {test_metrics[2]}')
+
+# Predicting
+seq_tagger.predict([['We', 'are', 'living', 'in', 'New', 'York', 'city', '.']])
 
 ```
 
