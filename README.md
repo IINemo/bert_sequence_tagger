@@ -123,7 +123,7 @@ pip install git+https://github.com/IINemo/bert_sequence_tagger.git
 # Requirements
 
 - torch
-- pytorch-transformers
+- pytorch_transformers
 - flair
 - seqeval
 
