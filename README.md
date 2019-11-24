@@ -31,7 +31,7 @@ from pytorch_transformers import AdamW, WarmupLinearSchedule
 
 import logging
 import sys
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger('sequence_tagger_bert')
 
 
