@@ -131,11 +131,17 @@ class SequenceTaggerBert:
                     label_ids = label_ids.cuda()
                     loss_masks = loss_masks.cuda()
     
-                logits = self._bert_model(token_ids, 
-                                          token_type_ids=None,
-                                          attention_mask=token_masks,
-                                          labels=label_ids,
-                                          loss_mask=loss_masks)
+                if type(self._bert_model) is BertForTokenClassificationCustom:
+                    logits = self._bert_model(token_ids, 
+                                              token_type_ids=None,
+                                              attention_mask=token_masks,
+                                              labels=label_ids,
+                                              loss_mask=loss_masks)
+                else:
+                    logits = self._bert_model(token_ids, 
+                                              token_type_ids=None,
+                                              attention_mask=token_masks,
+                                              labels=label_ids,)
                 
                 if evaluate:
                     loss, logits = logits
@@ -169,15 +175,11 @@ class SequenceTaggerBert:
         return token_ids, token_masks, bpe_masks
 
     def batch_loss_tensors(self, *tensors):
-        if type(self._bert_model) is BertForTokenClassificationCustom:
-            token_ids, token_masks, label_ids, loss_masks = tensors
-            loss_masks = loss_masks.cuda()
-        else:
-            token_ids, token_masks, label_ids = tensors
-            
+        token_ids, token_masks, label_ids, loss_masks = tensors
         token_ids = token_ids.cuda()
         token_masks = token_masks.cuda()
         label_ids = label_ids.cuda()
+        loss_masks = loss_masks.cuda()
         
         if type(self._bert_model) is BertForTokenClassificationCustom:
             output = self._bert_model(token_ids, 
