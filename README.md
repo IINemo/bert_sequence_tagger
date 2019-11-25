@@ -126,7 +126,7 @@ pip install git+https://github.com/IINemo/bert_sequence_tagger.git
 - tensorflow  
 - pytorch_transformers  
 - flair (optional for reading conll formatted files)  
-- seqeval (optinal for evaluation)
+- seqeval (optional for evaluation)
 
 # Cite
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
