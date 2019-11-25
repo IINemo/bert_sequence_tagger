@@ -138,3 +138,7 @@ pip install git+https://github.com/IINemo/bert_sequence_tagger.git
     year={2019}
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# TODO
+- Remove dependency from tensorflow
+- Make ModelTrainer more generalizable
