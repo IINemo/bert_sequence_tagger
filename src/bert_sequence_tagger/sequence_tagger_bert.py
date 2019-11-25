@@ -1,11 +1,7 @@
 import torch
-
-from seqeval.metrics import f1_score
-from sklearn.metrics import f1_score as f1_score_token
+from torch.utils.data import DataLoader
 
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-
-from torch.utils.data import DataLoader
 
 import itertools
 from tqdm import trange
