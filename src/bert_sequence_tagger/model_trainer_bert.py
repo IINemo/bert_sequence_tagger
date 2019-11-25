@@ -66,14 +66,7 @@ class ModelTrainerBert:
 
             cum_loss = 0.
             for nb, tensors in enumerate(train_dataloader):
-                tensors = (t.cuda() for t in tensors)
-                token_ids, token_masks, label_ids, loss_masks = tensors
-                loss = self._model._bert_model(token_ids, 
-                                               token_type_ids=None,
-                                               attention_mask=token_masks, 
-                                               labels=label_ids,
-                                               loss_mask=loss_masks)[0].mean()
-                
+                loss = self._model.batch_loss_tensors(*tensors)
                 cum_loss += loss.item()
                 
                 self._model._bert_model.zero_grad()

@@ -3,6 +3,8 @@ from torch.utils.data import DataLoader
 
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
+from .bert_for_token_classification_custom import BertForTokenClassificationCustom
+
 import itertools
 from tqdm import trange
 import numpy as np
@@ -166,21 +168,35 @@ class SequenceTaggerBert:
         _, max_len, token_ids, token_masks, bpe_masks = self._make_tokens_tensors(tokens, self._max_len)
         return token_ids, token_masks, bpe_masks
 
-    def batch_loss(self, tokens, labels):
-        token_ids, token_masks, label_ids, loss_masks = self.generate_tensors_for_training(tokens, labels)
-        
+    def batch_loss_tensors(self, *tensors):
+        if type(self._bert_model) is BertForTokenClassificationCustom:
+            token_ids, token_masks, label_ids, loss_masks = tensors
+            loss_masks = loss_masks.cuda()
+        else:
+            token_ids, token_masks, label_ids = tensors
+            
         token_ids = token_ids.cuda()
         token_masks = token_masks.cuda()
         label_ids = label_ids.cuda()
-        loss_masks = loss_masks.cuda()
         
-        loss = self._bert_model(token_ids, 
-                                token_type_ids=None,
-                                attention_mask=token_masks, 
-                                labels=label_ids,
-                                loss_mask=loss_masks)[0]
-
+        if type(self._bert_model) is BertForTokenClassificationCustom:
+            output = self._bert_model(token_ids, 
+                                    token_type_ids=None,
+                                    attention_mask=token_masks, 
+                                    labels=label_ids,
+                                    loss_mask=loss_masks)
+        else:
+            output = self._bert_model(token_ids, 
+                                    token_type_ids=None, 
+                                    attention_mask=token_masks, 
+                                    labels=label_ids)
+        
+        loss = output[0]
         return loss.mean()
+        
+    def batch_loss(self, tokens, labels):
+        token_ids, token_masks, label_ids, loss_masks = self.generate_tensors_for_training(tokens, labels)
+        return self.batch_loss_tensors(token_ids, None, token_masks, label_ids, loss_masks)
     
     def batch_logits(self, tokens):
         _, max_len, token_ids, token_masks, __ = self._make_tokens_tensors(tokens, self._max_len)
