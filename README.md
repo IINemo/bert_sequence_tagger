@@ -29,7 +29,7 @@ Training BERT model has many caveats that include but not limited to:
 
 [Pytorch_transformers](https://github.com/huggingface/transformers) provides a good pytorch implementation of BertForTokenClassification, however, it lacks code for proper trainig of sequence tagging models. Noticable effort is required to convert a tokenized text into an input suitable for BERT, with which you can achieve SOTA.
 
-This library does this work for you: it takes a tokenized input, performs bpe tokenization, padding, preparations, and all other work to prepare input for BERT. It also provides a trainer that can achieve the best performance for BERT models. See below example for CoNLL-2003 dataset. More detailed example in jupyter notebook is [here](http://github/iinemo/bert_for_sequence_tagging/src/example.ipynb).
+This library does this work for you: it takes a tokenized input, performs bpe tokenization, padding, preparations, and all other work to prepare input for BERT. It also provides a trainer that can achieve the best performance for BERT models. See below example for CoNLL-2003 dataset. More detailed example in jupyter notebook is [here](https://github.com/IINemo/bert_sequence_tagger/blob/master/src/example.ipynb).
 
 # Example
 
