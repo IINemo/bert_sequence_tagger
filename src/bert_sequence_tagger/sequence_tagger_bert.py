@@ -8,6 +8,9 @@ from .bert_for_token_classification_custom import BertForTokenClassificationCust
 import itertools
 from tqdm import trange
 import numpy as np
+import pickle
+import json
+import os
 
 
 import logging
@@ -213,7 +216,41 @@ class SequenceTaggerBert:
 
         return logits
     
-    # raw batch
+    def save_serialize(self, save_dir_path):
+        torch.save(self._bert_model.state_dict(), os.path.join(save_dir_path, 'pytorch_model.bin'))
+        with open(os.path.join(save_dir_path, 'bpe_tokenizer.pckl'), 'wb') as f:
+            pickle.dump(self._bpe_tokenizer, f)
+            
+        self._bert_model.config.save_pretrained(os.path.join(save_dir_path))
+        
+        parameters_dict = {
+            'idx2tag' : self._idx2tag,
+            'tag2idx' : self._tag2idx,
+            'max_len' : self._max_len,
+            'pred_loader_args' : self._pred_loader_args,
+            'pred_batch_size' : self._pred_batch_size
+        }
+        with open(os.path.join(save_dir_path, 'sec_parameters.json'), 'w') as f:
+            json.dump(parameters_dict, f)
+
+    @classmethod
+    def load_serialized(cls, load_dir_path, bert_model_type):
+        with open(os.path.join(load_dir_path, 'sec_parameters.json'), 'r') as f:
+            parameters_dict = json.load(f)
+         
+        bert_model = bert_model_type.from_pretrained(load_dir_path).cuda()
+        
+        with open(os.path.join(load_dir_path, 'bpe_tokenizer.pckl'), 'rb') as f:
+            bpe_tokenizer = pickle.load(f)
+        
+        return SequenceTaggerBert(bert_model, bpe_tokenizer,
+                                  idx2tag=parameters_dict['idx2tag'], 
+                                  tag2idx=parameters_dict['tag2idx'], 
+                                  max_len=parameters_dict['max_len'], 
+                                  pred_loader_args=parameters_dict['pred_loader_args'],
+                                  pred_batch_size=parameters_dict['pred_batch_size'])
+    
+    # TODO: raw batch
 
 
 def prepare_bpe_tokens_for_bert(tokens, max_len):
