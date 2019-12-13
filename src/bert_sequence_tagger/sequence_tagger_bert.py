@@ -217,6 +217,9 @@ class SequenceTaggerBert:
         return logits
     
     def save_serialize(self, save_dir_path):
+        if not os.path.exists(save_dir_path):
+            os.makedirs(save_dir_path)
+        
         torch.save(self._bert_model.state_dict(), os.path.join(save_dir_path, 'pytorch_model.bin'))
         with open(os.path.join(save_dir_path, 'bpe_tokenizer.pckl'), 'wb') as f:
             pickle.dump(self._bpe_tokenizer, f)
