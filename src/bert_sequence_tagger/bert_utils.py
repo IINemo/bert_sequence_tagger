@@ -19,7 +19,7 @@ def prepare_flair_corpus(corpus, name='ner', filter_tokens={'-DOCSTART-'}):
             continue
         else:
             result.append(([token.text for token in sent.tokens],
-                           [token.tags[name].value for token in sent.tokens]))
+                           [token.get_tag(name).value for token in sent.tokens]))
     
     return result
 
